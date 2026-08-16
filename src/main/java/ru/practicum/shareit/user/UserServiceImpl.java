@@ -19,7 +19,7 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public UserDto create(User user) {
-        log.debug("Создание пользователя {}", user);
+        log.info("Создание пользователя {}", user);
         userStorage.findByEmail(user.getEmail())
                 .ifPresent(existing -> {
                     log.warn("Пользователь с email {} уже существует", user.getEmail());
@@ -27,13 +27,13 @@ public class UserServiceImpl implements UserService {
                 });
 
         User newUser = userStorage.create(user);
-        log.debug("Создан пользователь с id: {}", newUser.getId());
+        log.info("Создан пользователь с id: {}", newUser.getId());
         return UserMapper.toUserDto(newUser);
     }
 
     @Override
     public UserDto update(UserUpdateDto userDto, Long userId) {
-        log.debug("Изменение пользователя с id {}", userId);
+        log.info("Изменение пользователя с id {}", userId);
         User oldUser = userStorage.findById(userId);
         userStorage.findByEmail(userDto.getEmail())
                 .ifPresent(existing -> {
@@ -43,28 +43,30 @@ public class UserServiceImpl implements UserService {
 
         UserMapper.updateUserFields(oldUser, userDto);
         User updatedUser = userStorage.update(oldUser);
-        log.debug("Пользователь с id: {} изменен", updatedUser.getId());
+        log.info("Пользователь с id: {} изменен", updatedUser.getId());
         return UserMapper.toUserDto(updatedUser);
     }
 
     @Override
     public Collection<UserDto> findAll() {
-        log.debug("Получение всех пользователей");
-        return userStorage.findAll()
+        log.info("Получение всех пользователей");
+        Collection<UserDto> userDtos = userStorage.findAll()
                 .stream()
                 .map(UserMapper::toUserDto)
                 .collect(Collectors.toList());
+        log.info("Получен список из {} пользователей", userDtos.size());
+        return userDtos;
     }
 
     @Override
     public UserDto findById(Long userId) {
-        log.debug("Получение пользователя с id: {}", userId);
+        log.info("Получение пользователя с id: {}", userId);
         return UserMapper.toUserDto(userStorage.findById(userId));
     }
 
     @Override
     public void delete(Long userId) {
-        log.debug("Удаление пользователя с id: {}", userId);
+        log.info("Удаление пользователя с id: {}", userId);
         userStorage.delete(userId);
     }
 }

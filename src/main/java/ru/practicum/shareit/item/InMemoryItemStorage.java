@@ -31,7 +31,7 @@ public class InMemoryItemStorage implements ItemStorage {
 
     @Override
     public Item update(Item item) {
-        findById(item.getId());
+        throwIfNotFound(item.getId());
         items.put(item.getId(), item);
         log.debug("Вещь {} изменена в хранилище", item);
         return item;
@@ -39,11 +39,8 @@ public class InMemoryItemStorage implements ItemStorage {
 
     @Override
     public Item findById(Long itemId) {
+        throwIfNotFound(itemId);
         Item item = items.get(itemId);
-        if (item == null) {
-            log.warn("Вещь с id {} не найдена в хранилище", itemId);
-            throw new NotFoundException("Вещь с id " + itemId + " не найдена");
-        }
         return item;
     }
 
@@ -66,6 +63,13 @@ public class InMemoryItemStorage implements ItemStorage {
                 .filter(item -> item.getName().toLowerCase().contains(lowerText)
                         || item.getDescription().toLowerCase().contains(lowerText))
                 .collect(Collectors.toList());
+    }
+
+    private void throwIfNotFound(Long itemId) {
+        if (!items.containsKey(itemId)) {
+            log.warn("В хранилище не найдена вещь с id {}", itemId);
+            throw new NotFoundException("Вещь с id " + itemId + " не найдена");
+        }
     }
 
     private Long getNextId() {

@@ -25,7 +25,7 @@ public class InMemoryUserStorage implements UserStorage {
 
     @Override
     public User update(User user) {
-        findById(user.getId());
+        throwIfNotFound(user.getId());
         users.put(user.getId(), user);
         log.debug("Пользователь {} изменен в хранилище", user);
         return user;
@@ -38,18 +38,16 @@ public class InMemoryUserStorage implements UserStorage {
 
     @Override
     public User findById(Long userId) {
-        User user = users.get(userId);
-        if (user == null) {
-            log.warn("В хранилище не найден пользователь с id {}", userId);
-            throw new NotFoundException("Пользователь с id " + userId + " не найден");
-        }
-        log.debug("В хранилище найден пользователь {}", user);
-        return user;
+        return Optional.ofNullable(users.get(userId))
+                .orElseThrow(() -> {
+                    log.warn("В хранилище не найден пользователь с id {}", userId);
+                    return new NotFoundException("Пользователь с id " + userId + " не найден");
+                });
     }
 
     @Override
     public void delete(Long userId) {
-        findById(userId);
+        throwIfNotFound(userId);
         users.remove(userId);
         log.debug("В хранилище удален пользователь id {}", userId);
     }
@@ -61,6 +59,12 @@ public class InMemoryUserStorage implements UserStorage {
                 .findFirst();
     }
 
+    private void throwIfNotFound(Long userId) {
+        if (!users.containsKey(userId)) {
+            log.warn("В хранилище не найден пользователь с id {}", userId);
+            throw new NotFoundException("Пользователь с id " + userId + " не найден");
+        }
+    }
 
     private Long getNextId() {
         long currentMaxId = users.keySet()
