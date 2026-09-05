@@ -34,9 +34,9 @@ public class GlobalExceptionHandler {
                 .body(new ErrorResponse(e.getMessage()));
     }
 
-    @ExceptionHandler(BadRequestException.class)
-    public ResponseEntity<ErrorResponse> handleBadRequest(BadRequestException e) {
-        log.warn("Ошибка: неверный запрос {}", e.getMessage(), e);
+    @ExceptionHandler(ValidationException.class)
+    public ResponseEntity<ErrorResponse> handleBadRequest(ValidationException e) {
+        log.warn("Ошибка валидации {}", e.getMessage(), e);
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .body(new ErrorResponse(e.getMessage()));

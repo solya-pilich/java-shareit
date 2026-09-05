@@ -8,9 +8,10 @@ import ru.practicum.shareit.booking.dto.BookingCreateDto;
 import ru.practicum.shareit.booking.dto.BookingResponseDto;
 import ru.practicum.shareit.booking.dto.BookingState;
 import ru.practicum.shareit.booking.model.Booking;
-import ru.practicum.shareit.exception.BadRequestException;
+import ru.practicum.shareit.booking.strategy.BookingStrategyContext;
 import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.item.ItemRepository;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.UserRepository;
@@ -18,7 +19,10 @@ import ru.practicum.shareit.user.model.User;
 
 import java.time.LocalDateTime;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -30,6 +34,7 @@ public class BookingServiceImpl implements BookingService {
     private final BookingRepository bookingRepository;
     private final UserRepository userRepository;
     private final ItemRepository itemRepository;
+    private final BookingStrategyContext strategyContext;
 
     @Override
     @Transactional
@@ -47,7 +52,7 @@ public class BookingServiceImpl implements BookingService {
                 });
         if (Boolean.FALSE.equals(item.getAvailable())) {
             log.warn("Вещь {} недоступна для бронирования", item.getId());
-            throw new BadRequestException("Вещь недоступна для бронирования");
+            throw new ValidationException("Вещь недоступна для бронирования");
         }
         if (item.getOwner().equals(userId)) {
             log.warn("Владелец {} пытается забронировать свою вещь {}", userId, item.getId());
@@ -55,7 +60,7 @@ public class BookingServiceImpl implements BookingService {
         }
         if (bookingDto.getStart().isAfter(bookingDto.getEnd()) || bookingDto.getStart().equals(bookingDto.getEnd())) {
             log.warn("Некорректные даты бронирования: start={}, end={}", bookingDto.getStart(), bookingDto.getEnd());
-            throw new BadRequestException("Дата начала должна быть раньше даты окончания");
+            throw new ValidationException("Дата начала должна быть раньше даты окончания");
         }
 
         Booking booking = BookingMapper.toBooking(bookingDto, item, booker);
@@ -81,7 +86,7 @@ public class BookingServiceImpl implements BookingService {
         }
         if (booking.getStatus() != BookingStatus.WAITING) {
             log.warn("Бронирование {} уже обработано, текущий статус {}", bookingId, booking.getStatus());
-            throw new BadRequestException("Бронирование уже обработано");
+            throw new ValidationException("Бронирование уже обработано");
         }
 
         booking.setStatus(approved ? BookingStatus.APPROVED : BookingStatus.REJECTED);
@@ -121,31 +126,7 @@ public class BookingServiceImpl implements BookingService {
                 });
 
         LocalDateTime now = LocalDateTime.now();
-        List<Booking> bookings;
-
-        switch (state) {
-            case ALL:
-                bookings = bookingRepository.findByBookerIdOrderByStartDesc(userId);
-                break;
-            case CURRENT:
-                bookings = bookingRepository.findCurrentByBooker(userId, now);
-                break;
-            case PAST:
-                bookings = bookingRepository.findPastByBooker(userId, now);
-                break;
-            case FUTURE:
-                bookings = bookingRepository.findFutureByBooker(userId, now);
-                break;
-            case WAITING:
-                bookings = bookingRepository.findByBookerIdAndStatusOrderByStartDesc(userId, BookingStatus.WAITING);
-                break;
-            case REJECTED:
-                bookings = bookingRepository.findByBookerIdAndStatusOrderByStartDesc(userId, BookingStatus.REJECTED);
-                break;
-            default:
-                log.warn("Неизвестный state: {}", state);
-                throw new BadRequestException("Неизвестный state: " + state);
-        }
+        List<Booking> bookings = strategyContext.execute(state, userId, now);
 
         log.info("Найдено {} бронирований для пользователя {}", bookings.size(), userId);
         return bookings.stream()
@@ -163,35 +144,31 @@ public class BookingServiceImpl implements BookingService {
                 });
 
         LocalDateTime now = LocalDateTime.now();
-        List<Booking> bookings;
-
-        switch (state) {
-            case ALL:
-                bookings = bookingRepository.findByOwnerId(userId);
-                break;
-            case CURRENT:
-                bookings = bookingRepository.findCurrentByOwner(userId, now);
-                break;
-            case PAST:
-                bookings = bookingRepository.findPastByOwner(userId, now);
-                break;
-            case FUTURE:
-                bookings = bookingRepository.findFutureByOwner(userId, now);
-                break;
-            case WAITING:
-                bookings = bookingRepository.findByOwnerIdAndStatus(userId, BookingStatus.WAITING);
-                break;
-            case REJECTED:
-                bookings = bookingRepository.findByOwnerIdAndStatus(userId, BookingStatus.REJECTED);
-                break;
-            default:
-                log.warn("Неизвестный state: {}", state);
-                throw new BadRequestException("Неизвестный state: " + state);
-        }
+        Supplier<List<Booking>> supplier = getOwnerStrategy(state, userId, now);
+        List<Booking> bookings = supplier.get();
 
         log.info("Найдено {} бронирований для владельца {}", bookings.size(), userId);
         return bookings.stream()
                 .map(BookingMapper::toBookingResponseDto)
                 .collect(Collectors.toList());
+    }
+
+    private Supplier<List<Booking>> getOwnerStrategy(BookingState state, Long userId, LocalDateTime now) {
+        Map<BookingState, Supplier<List<Booking>>> handlers = new HashMap<>();
+
+        handlers.put(BookingState.ALL, () -> bookingRepository.findByOwnerId(userId));
+        handlers.put(BookingState.CURRENT, () -> bookingRepository.findCurrentByOwner(userId, now));
+        handlers.put(BookingState.PAST, () -> bookingRepository.findPastByOwner(userId, now));
+        handlers.put(BookingState.FUTURE, () -> bookingRepository.findFutureByOwner(userId, now));
+        handlers.put(BookingState.WAITING, () -> bookingRepository.findByOwnerIdAndStatus(userId, BookingStatus.WAITING));
+        handlers.put(BookingState.REJECTED, () -> bookingRepository.findByOwnerIdAndStatus(userId, BookingStatus.REJECTED));
+
+        Supplier<List<Booking>> supplier = handlers.get(state);
+        if (supplier == null) {
+            log.warn("Неизвестный state: {}", state);
+            throw new ValidationException("Неизвестный state: " + state);
+        }
+
+        return supplier;
     }
 }

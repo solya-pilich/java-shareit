@@ -6,8 +6,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.booking.BookingRepository;
 import ru.practicum.shareit.booking.dto.BookingShortDto;
-import ru.practicum.shareit.exception.BadRequestException;
 import ru.practicum.shareit.exception.NotFoundException;
+import ru.practicum.shareit.exception.ValidationException;
 import ru.practicum.shareit.item.dto.*;
 import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.item.model.Comment;
@@ -128,7 +128,7 @@ public class ItemServiceImpl implements ItemService {
                 userId, itemId, LocalDateTime.now());
         if (!hasBooked) {
             log.warn("Пользователь {} не арендовал вещь {} или срок не истёк", userId, itemId);
-            throw new BadRequestException("Пользователь не арендовал эту вещь или срок аренды ещё не истёк");
+            throw new ValidationException("Пользователь не арендовал эту вещь или срок аренды ещё не истёк");
         }
 
         Comment comment = CommentMapper.toComment(commentDto, user, item);
