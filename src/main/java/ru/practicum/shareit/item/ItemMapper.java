@@ -2,6 +2,7 @@ package ru.practicum.shareit.item;
 
 import lombok.NoArgsConstructor;
 import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.dto.ItemShortDto;
 import ru.practicum.shareit.item.dto.ItemUpdateDto;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.model.User;
@@ -15,6 +16,7 @@ public class ItemMapper {
         dto.setName(item.getName());
         dto.setDescription(item.getDescription());
         dto.setAvailable(item.getAvailable());
+        dto.setRequestId(item.getRequest());
         return dto;
     }
 
@@ -25,6 +27,9 @@ public class ItemMapper {
         item.setDescription(itemDto.getDescription());
         item.setAvailable(itemDto.getAvailable());
         item.setOwner(user.getId());
+        if (itemDto.getRequestId() != null) {
+            item.setRequest(itemDto.getRequestId());
+        }
         return item;
     }
 
@@ -38,5 +43,9 @@ public class ItemMapper {
         if (itemDto.getAvailable() != null) {
             oldItem.setAvailable(itemDto.getAvailable());
         }
+    }
+
+    public static ItemShortDto toItemShortDto(Item item) {
+        return new ItemShortDto(item.getId(), item.getName(), item.getOwner());
     }
 }

@@ -8,10 +8,6 @@ import ru.practicum.shareit.user.model.User;
 
 import java.time.LocalDateTime;
 
-/**
- * TODO Sprint add-item-requests.
- */
-
 @Entity
 @Table(name = "requests")
 @Data

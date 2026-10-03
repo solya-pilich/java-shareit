@@ -12,6 +12,7 @@ import ru.practicum.shareit.item.dto.*;
 import ru.practicum.shareit.exception.ForbiddenException;
 import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.request.ItemRequestRepository;
 import ru.practicum.shareit.user.model.User;
 import ru.practicum.shareit.user.UserRepository;
 
@@ -32,6 +33,7 @@ public class ItemServiceImpl implements ItemService {
     private final ItemRepository itemRepository;
     private final BookingRepository bookingRepository;
     private final CommentRepository commentRepository;
+    private final ItemRequestRepository itemRequestRepository;
 
     @Override
     @Transactional
@@ -39,6 +41,13 @@ public class ItemServiceImpl implements ItemService {
         log.info("Добавление вещи для пользователя {}", userId);
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("Пользователь с id " + userId + " не найден"));
+
+        if (itemDto.getRequestId() != null) {
+            itemRequestRepository.findById(itemDto.getRequestId())
+                    .orElseThrow(() -> new NotFoundException(
+                            "Запрос с id " + itemDto.getRequestId() + " не найден"));
+        }
+
         Item item = ItemMapper.toItem(itemDto, user);
         Item saved = itemRepository.save(item);
         log.info("Вещь {} добавлена (id={})", saved.getName(), saved.getId());

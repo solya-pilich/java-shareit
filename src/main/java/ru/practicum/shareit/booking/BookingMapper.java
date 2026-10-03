@@ -22,7 +22,7 @@ public class BookingMapper {
 
     public static BookingResponseDto toBookingResponseDto(Booking booking) {
         Item item = booking.getItem();
-        ItemShortDto itemShortDto = item != null ? new ItemShortDto(item.getId(), item.getName()) : null;
+        ItemShortDto itemShortDto = item != null ? new ItemShortDto(item.getId(), item.getName(), item.getOwner()) : null;
 
         User booker = booking.getBooker();
         UserShortDto userShortDto = booker != null ? new UserShortDto(booker.getId(), booker.getName()) : null;
